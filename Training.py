@@ -10,14 +10,17 @@ from torch.optim import lr_scheduler
 from model.CNN import CNN
 from ModelType import ModelType
 import copy
+from constants import MODEL_PATH
 
 # Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
 
+
 class Training:
     def __init__(self):
         self.device = get_device()
+        torch.rand(1).cuda()
 
 
     def train(self, n_epochs, batch_size, model_type, criterion, learning_rate, enable_scheduler=False):
@@ -55,6 +58,7 @@ class Training:
                 best_accuracy = validation_accuracy
                 best_model_wts = copy.deepcopy(self.model.state_dict())
 
+        torch.save(self.model, MODEL_PATH)
         print("Finished training")
 
 
@@ -71,17 +75,14 @@ class Training:
         elif model_type == ModelType.fine_tuned:
             model = models.resnet18(pretrained=True)
             num_features = model.fc.in_features
-            model.fc = nn.Linear(num_features, 2)
+            model.fc = nn.Linear(num_features, 1)
             return model.to(self.device)
-        elif model_type == ModelType.fixed_feature_extractor:
-            pass
-        else:
-            pass
 
     
     def _training_pass(self):
         print("Training pass ...")
         model = self.model.train()
+        m = nn.Sigmoid()
         with torch.set_grad_enabled(True):
             running_loss = 0
             correct = 0
@@ -90,11 +91,12 @@ class Training:
             for i, data in enumerate(tqdm(self.train_loader, 0)):
                 inputs, labels = data
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
+                labels = labels.float()
                 self.optimizer.zero_grad()
 
                 outputs = model(inputs)
-                _, predicted = torch.max(outputs, 1)
-                loss = self.criterion(outputs, labels)
+                predicted = m(outputs)
+                loss = self.criterion(predicted, labels)
                 loss.backward()
                 self.optimizer.step()
 
@@ -111,6 +113,7 @@ class Training:
     def _validation_pass(self):
         print("Validation pass ...")
         self.model = self.model.eval()
+        m = nn.Sigmoid()
         with torch.no_grad():
             correct = 0
             total = 0
@@ -119,11 +122,12 @@ class Training:
             for i, data in enumerate(tqdm(self.validation_loader, 0)):
                 inputs, labels = data
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
+                labels = labels.float()
 
                 outputs = self.model(inputs)
-                loss = self.criterion(outputs, labels)
+                predicted = m(outputs)
+                loss = self.criterion(predicted, labels)
 
-                _, predicted = torch.max(outputs.data, 1)
                 valid_loss += loss.item()
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()

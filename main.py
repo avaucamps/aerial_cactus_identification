@@ -15,6 +15,7 @@ import os
 import copy
 from utils import get_device
 from dataset.DatasetHelper import DatasetHelper
+from Test import Test
 
 
 if __name__ == '__main__':
@@ -32,7 +33,10 @@ if __name__ == '__main__':
         n_epochs=5,
         batch_size=64,
         model_type=ModelType.fine_tuned,
-        criterion=nn.CrossEntropyLoss(), 
+        criterion=nn.BCELoss(), 
         learning_rate=0.001,
         enable_scheduler=True
     )
+
+    test = Test()
+    test.run()
